@@ -1,0 +1,36 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class DQNNet(nn.Module):
+    def __init__(self, obs_dim, act_dim, hidden_size=64):
+        super().__init__()
+        self.fc1 = nn.Linear(obs_dim, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc3 = nn.Linear(hidden_size, act_dim)
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        return self.fc3(x)
+
+class DQNAgent:
+    def __init__(self, obs_dim, act_dim, lr=1e-3, gamma=0.99):
+        self.net = DQNNet(obs_dim, act_dim)
+        self.optimizer = torch.optim.Adam(self.net.parameters(), lr=lr)
+        self.gamma = gamma
+
+    def select_action(self, obs, epsilon):
+        """
+        输入 obs（Tensor），以 ε-greedy 策略选动作，返回 action
+        """
+        # TODO: 实现 ε-greedy
+        pass
+
+    def update(self, batch):
+        """
+        输入一个 batch 的 (obs, act, rew, next_obs, done)，
+        计算 DQN loss 并做优化
+        """
+        # TODO: 实现 DQN 的 update
+        pass
