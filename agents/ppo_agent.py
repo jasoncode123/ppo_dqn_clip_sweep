@@ -1,4 +1,5 @@
 import torch
+from torch.distributions import Categorical
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -35,14 +36,31 @@ class PPOAgent:
         self.lam        = lam
         self.policy_optim = torch.optim.Adam(self.policy_net.parameters(), lr=lr)
         self.value_optim  = torch.optim.Adam(self.value_net.parameters(),  lr=lr)
-
+    
     def select_action(self, obs):
         """
-        返回 action, log_prob, value（用于后续 GAE）
+        输入 obs（numpy array 或 Tensor），
+        返回 action(int), log_prob(float), value(float)
         """
-        # TODO
-        pass
-
+        # 1. 转为 Tensor 并加 batch 维度
+        if not isinstance(obs, torch.Tensor):
+            obs = torch.tensor(obs, dtype=torch.float32)
+        obs = obs.unsqueeze(0)  # shape [1, obs_dim]
+        
+        # 2. 策略网络输出 logits
+        logits = self.policy_net(obs)  # [1, act_dim]
+        
+        # 3. 构造分布并采样
+        dist = Categorical(logits=logits)
+        action = dist.sample()  # [1]
+        log_prob = dist.log_prob(action)  # [1]
+        
+        # 4. 价值网络估计
+        value = self.value_net(obs)  # [1]
+        
+        # 5. 取标量返回
+        return action.item(), log_prob.item(), value.item()
+    
     def compute_gae(self, rewards, values, dones):
         """
         输入 rewards, values, dones 列表，计算 GAE advantages 和 returns
