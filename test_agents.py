@@ -1,4 +1,5 @@
 import gym
+import numpy as np
 from agents.ppo_agent import PPOAgent
 from agents.dqn_agent import DQNAgent
 
@@ -22,3 +23,13 @@ action_dqn_greedy = dqn.select_action(obs, epsilon=0.0)
 action_dqn_random = dqn.select_action(obs, epsilon=1.0)
 print("DQN greedy action:", action_dqn_greedy)
 print("DQN random action:", action_dqn_random)
+
+print("\n=== PPO Update Test ===")
+N = 8
+obs_b = np.random.randn(N, env.observation_space.shape[0])
+acts_b = np.random.randint(0, env.action_space.n, size=N)
+oldlps = np.random.randn(N) * -1.0
+advs   = np.random.randn(N)
+rets   = np.random.randn(N)
+metrics = ppo.update(obs_b, acts_b, oldlps, advs, rets)
+print(metrics)

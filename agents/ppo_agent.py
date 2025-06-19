@@ -63,14 +63,82 @@ class PPOAgent:
     
     def compute_gae(self, rewards, values, dones):
         """
-        输入 rewards, values, dones 列表，计算 GAE advantages 和 returns
+        输入：
+          rewards: list[float]，长度 T
+          values:  list[float]，长度 T，V(s_t)
+          dones:   list[bool or int]，长度 T，若该步结束则为 1，否则为 0
+        返回：
+          advantages, returns: 两个 list[float]，长度 T
         """
-        # TODO
-        pass
+        T = len(rewards)
+        advantages = [0.0] * T
+        returns    = [0.0] * T
+        gae = 0.0
+        next_value = 0.0  # 末状态的值视为 0
+        for t in reversed(range(T)):
+            mask = 1.0 - float(dones[t])
+            # δ_t = r_t + γ * V(s_{t+1}) * mask - V(s_t)
+            delta = rewards[t] + self.gamma * next_value * mask - values[t]
+            # GAE 递推：A_t = δ_t + γ * λ * mask * A_{t+1}
+            gae = delta + self.gamma * self.lam * mask * gae
+            advantages[t] = gae
+            # Discounted return: R_t = A_t + V(s_t)
+            returns[t] = gae + values[t]
+            next_value = values[t]
+        return advantages, returns
 
-    def update(self, obs, acts, logps, advs, rets):
+
+    def update(self, obs, acts, old_logps, advs, rets,
+               clip_ratio=None, vf_coef=0.5, ent_coef=0.01):
         """
-        使用一个 batch 的数据做一次 PPO clipping 更新
+        一次 PPO-clip 更新
+        obs, acts, old_logps, advs, rets: list 或 numpy array，长度 N
+        clip_ratio: 可选覆盖 self.clip_ratio
+        vf_coef:    value loss 权重
+        ent_coef:   entropy bonus 权重
         """
-        # TODO
-        pass
+        if clip_ratio is None:
+            clip_ratio = self.clip_ratio
+
+        # 转 Tensor
+        obs_t   = torch.as_tensor(obs,      dtype=torch.float32)
+        acts_t  = torch.as_tensor(acts,     dtype=torch.int64)
+        oldlp_t = torch.as_tensor(old_logps, dtype=torch.float32)
+        advs_t  = torch.as_tensor(advs,     dtype=torch.float32)
+        rets_t  = torch.as_tensor(rets,     dtype=torch.float32)
+
+        # 新策略分布与 log_prob
+        logits   = self.policy_net(obs_t)
+        dist     = Categorical(logits=logits)
+        newlp_t  = dist.log_prob(acts_t)
+        # 计算比例
+        ratio    = torch.exp(newlp_t - oldlp_t)
+
+        # 1) 策略损失：clip
+        unclipped = ratio * advs_t
+        clipped   = torch.clamp(ratio, 1-clip_ratio, 1+clip_ratio) * advs_t
+        policy_loss = -torch.mean(torch.min(unclipped, clipped))
+
+        # 2) 价值损失
+        value_pred  = self.value_net(obs_t)
+        value_loss  = torch.mean((value_pred - rets_t)**2)
+
+        # 3) 熵奖励
+        entropy = torch.mean(dist.entropy())
+
+        # 总 loss
+        loss = policy_loss + vf_coef * value_loss - ent_coef * entropy
+
+        # 反向 + 更新
+        self.policy_optim.zero_grad()
+        self.value_optim.zero_grad()
+        loss.backward()
+        self.policy_optim.step()
+        self.value_optim.step()
+
+        return {
+            "policy_loss": policy_loss.item(),
+            "value_loss":  value_loss.item(),
+            "entropy":     entropy.item(),
+            "ratio_mean":  ratio.mean().item(),
+        }
