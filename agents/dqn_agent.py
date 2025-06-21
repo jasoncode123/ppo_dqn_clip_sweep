@@ -48,10 +48,44 @@ class DQNAgent:
         
         return action
     
-    def update(self, batch):
+    def update(self, obs, acts, rewards, next_obs, dones):
         """
-        输入一个 batch 的 (obs, act, rew, next_obs, done)，
-        计算 DQN loss 并做优化
+        对一个 batch 的 (obs, acts, rewards, next_obs, dones) 做一次 DQN 更新
+        - obs, next_obs: numpy arrays, shape [N, obs_dim]
+        - acts:           numpy array of ints, shape [N]
+        - rewards:        numpy array of floats, shape [N]
+        - dones:          numpy array of 0/1,    shape [N]
+        返回：
+          dict 包含 'q_loss'（float）和 'q_value_mean'（float）
         """
-        # TODO: 实现 DQN 的 update
-        pass
+        # 1. 转 Tensor
+        obs_t      = torch.as_tensor(obs,      dtype=torch.float32)
+        acts_t     = torch.as_tensor(acts,     dtype=torch.int64)
+        rews_t     = torch.as_tensor(rewards,  dtype=torch.float32)
+        next_obs_t = torch.as_tensor(next_obs, dtype=torch.float32)
+        dones_t    = torch.as_tensor(dones,    dtype=torch.float32)
+
+        # 2. 当前 Q(s,a)
+        q_values = self.net(obs_t)                              # [N, act_dim]
+        q_s_a    = q_values.gather(1, acts_t.unsqueeze(-1)).squeeze(-1)  # [N]
+
+        # 3. 计算 target：r + γ * max_a' Q(s',a') * (1 - done)
+        with torch.no_grad():
+            q_next    = self.net(next_obs_t)                    # [N, act_dim]
+            q_next_max = q_next.max(dim=1).values               # [N]
+            target     = rews_t + self.gamma * q_next_max * (1 - dones_t)  # [N]
+
+        # 4. MSE loss
+        loss = F.mse_loss(q_s_a, target)
+
+        # 5. 反向 + 更新
+        # 5. 反向 + 更新
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+        
+        # 6. 返回指标
+        return {
+            "q_loss":       loss.item(),
+            "q_value_mean": q_s_a.mean().item()
+        }
