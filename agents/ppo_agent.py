@@ -40,27 +40,32 @@ class PPOAgent:
     
     def select_action(self, obs):
         """
-        输入 obs（numpy array 或 Tensor），
+        输入 obs（numpy array、Tensor，或 (obs, info) 元组）,
         返回 action(int), log_prob(float), value(float)
         """
-        # 1. 转为 Tensor 并加 batch 维度
-        if not isinstance(obs, torch.Tensor):
-            obs = torch.tensor(obs, dtype=torch.float32)
-        obs = obs.unsqueeze(0)  # shape [1, obs_dim]
+        # 兼容 Gym 0.26+ API：拆包 (obs, info)
+        if isinstance(obs, (tuple, list)):
+            obs = obs[0]
         
-        # 2. 策略网络输出 logits
-        logits = self.policy_net(obs)  # [1, act_dim]
+        # 直接把 numpy array 包装成 Tensor
+        obs_t = torch.as_tensor(obs, dtype=torch.float32)
+        # 如果是一维，就加上 batch 维度
+        if obs_t.dim() == 1:
+            obs_t = obs_t.unsqueeze(0)  # [1, obs_dim]
         
-        # 3. 构造分布并采样
+        # 策略前向拿 logits
+        logits = self.policy_net(obs_t)  # [B, act_dim]
         dist = Categorical(logits=logits)
-        action = dist.sample()  # [1]
-        log_prob = dist.log_prob(action)  # [1]
+        acts = dist.sample()  # [B]
+        logps = dist.log_prob(acts)  # [B]
         
-        # 4. 价值网络估计
-        value = self.value_net(obs)  # [1]
+        # 价值网络
+        values = self.value_net(obs_t)  # [B]
         
-        # 5. 取标量返回
-        return action.item(), log_prob.item(), value.item()
+        # 如果只有一个样本，就把结果都转成标量
+        if acts.shape[0] == 1:
+            return acts.item(), logps.item(), values.item()
+        return acts, logps, values
     
     def compute_gae(self, rewards, values, dones):
         return compute_gae(rewards, values, dones, self.gamma, self.lam)

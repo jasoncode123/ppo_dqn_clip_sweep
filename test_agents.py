@@ -33,3 +33,16 @@ advs   = np.random.randn(N)
 rets   = np.random.randn(N)
 metrics = ppo.update(obs_b, acts_b, oldlps, advs, rets)
 print(metrics)
+
+
+# ------------------ DQN 更新测试 ------------------
+print("\n=== DQN Update Test ===")
+N = 8
+obs_b      = np.random.randn(N, env.observation_space.shape[0])
+acts_b     = np.random.randint(0, env.action_space.n, size=N)
+rews_b     = np.random.randn(N)
+next_obs_b = np.random.randn(N, env.observation_space.shape[0])
+dones_b    = np.random.randint(0, 2, size=N)
+
+dqn_metrics = dqn.update(obs_b, acts_b, rews_b, next_obs_b, dones_b)
+print(dqn_metrics)

@@ -1,4 +1,5 @@
 import gym
+import numpy as np
 from agents.ppo_agent import PPOAgent
 from agents.dqn_agent import DQNAgent
 
