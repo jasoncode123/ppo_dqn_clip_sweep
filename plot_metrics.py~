@@ -28,7 +28,7 @@ def main():
         if args.clip_ratio is None:
             raise ValueError("Must provide --clip_ratio when plotting PPO")
         folder = f"ppo_clip{args.clip_ratio:.2f}_{ts}"
-        metrics = np.load("train/data/ppo_metrics.npz")
+        metrics = np.load("data/ppo_metrics.npz")
         curves = {
             "Average Return":   metrics["ret"],
             "Episode Length":   metrics["length"],

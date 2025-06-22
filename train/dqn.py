@@ -8,13 +8,13 @@ from agents.dqn_agent import DQNAgent
 
 def train_dqn(env_name="CartPole-v1",
               total_epochs=50,
-              steps_per_epoch=4000,
+              steps_per_epoch=500,
               gamma=0.99,
-              lr=1e-3,
-              replay_size=10000,
-              batch_size=64,
+              lr=1e-4,
+              replay_size=1000,
+              batch_size=128,
               eps_start=1.0,
-              eps_end=0.1):
+              eps_end=0.05):
     # 指标收集
     ret_list, len_list, ql_list, qv_list = [], [], [], []
 

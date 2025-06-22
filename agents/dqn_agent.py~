@@ -25,29 +25,28 @@ class DQNAgent:
     
     def select_action(self, obs, epsilon):
         """
-        输入：
-          obs: numpy array 或 Tensor，表示当前状态
-          epsilon: float，探索率，∈ [0,1]
-        返回：
-          action: int，选中的动作
+        输入:
+          obs: numpy array、Tensor，或 (obs, info) 元组
+          epsilon: float, 探索率
         """
-        # 0. 处理 obs，使其成为 [1, obs_dim] 的 Tensor
+        # 1) 兼容 Gym 0.26+ API，把 (obs, info) 拆开
+        if isinstance(obs, (tuple, list)):
+            obs = obs[0]
+
+        # 2) 转成 Tensor 并加 batch 维度
         if not isinstance(obs, torch.Tensor):
-            obs = torch.tensor(obs, dtype=torch.float32)
-        obs = obs.unsqueeze(0)  # shape [1, obs_dim]
-        
-        # 1. 用网络预测 Q 值
-        q_values = self.net(obs)  # shape [1, act_dim]
-        q_values = q_values.squeeze(0)  # shape [act_dim]
-        
-        # 2. ε-贪心：随机探索或贪心选择
+            obs = torch.as_tensor(obs, dtype=torch.float32)
+        if obs.dim() == 1:
+            obs = obs.unsqueeze(0)  # [1, obs_dim]
+
+        # 3) 前向 + ε-greedy
+        q_values = self.net(obs)           # [1, act_dim]
+        q_values = q_values.squeeze(0)     # [act_dim]
         if random.random() < epsilon:
-            action = random.randrange(q_values.shape[0])
+            return random.randrange(q_values.shape[0])
         else:
-            action = torch.argmax(q_values).item()
+            return torch.argmax(q_values).item()
         
-        return action
-    
     def update(self, obs, acts, rewards, next_obs, dones):
         """
         对一个 batch 的 (obs, acts, rewards, next_obs, dones) 做一次 DQN 更新
